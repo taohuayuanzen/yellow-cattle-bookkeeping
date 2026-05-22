@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>黄牛记账 - 收支分析</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">
+    <div class="logo-icon">🐂</div>
+    <span class="logo-text">黄牛记账</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon" id="settingsBtn" title="设置">⚙</button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- 分析页月份导航 -->
+  <div class="month-nav" id="monthNavAnalysis">
+    <button class="month-nav-btn" id="prevMonthAnalysis">‹</button>
+    <div class="month-label" id="monthLabelAnalysis"></div>
+    <button class="month-nav-btn" id="nextMonthAnalysis">›</button>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-row">
+    <div class="stat-card income"><div class="stat-label">总收入</div><div class="stat-value" id="statIncome">¥0</div></div>
+    <div class="stat-card expense"><div class="stat-label">总支出</div><div class="stat-value" id="statExpense">¥0</div></div>
+    <div class="stat-card net"><div class="stat-label">净结余</div><div class="stat-value" id="statNet">¥0</div></div>
+  </div>
+
+  <div class="section-title">支出分类</div>
+  <div class="tag-bar-list" id="expenseTagBars"></div>
+
+  <div class="section-title" style="margin-top:16px">收入分类</div>
+  <div class="tag-bar-list" id="incomeTagBars"></div>
+
+  <hr class="section-divider">
+
+  <!-- AI 收支分析 -->
+  <div class="analysis-section" id="analysisSection">
+    <div class="section-title">AI 收支分析</div>
+
+    <!-- 周期选择器 -->
+    <div class="period-selector" id="periodSelector">
+      <button class="period-btn active" data-period="month">本月</button>
+      <button class="period-btn" data-period="3months">近3个月</button>
+      <button class="period-btn" data-period="6months">近6个月</button>
+      <button class="period-btn" data-period="custom">自定义</button>
+    </div>
+
+    <!-- 自定义日期 -->
+    <div class="custom-date-range" id="customDateRange" style="display:none;">
+      <input type="date" class="field" id="analysisStartDate">
+      <span class="date-sep">至</span>
+      <input type="date" class="field" id="analysisEndDate">
+    </div>
+
+    <!-- 分析按钮 -->
+    <button class="btn-ai-analyze" id="btnAiAnalyze">✦ 让 AI 分析我的收支</button>
+
+    <!-- 分析结果 -->
+    <div class="analysis-result" id="analysisResult" style="display:none;">
+      <div class="analysis-loading" id="analysisLoading" style="display:none;">
+        <div class="ai-spinner"></div>
+        <p class="analysis-loading-text">AI 正在结合佛陀教导的财富观分析您的收支，请稍候…</p>
+      </div>
+      <div class="analysis-content" id="analysisContent"></div>
+    </div>
+  </div>
+</div><!-- /app-body -->
+
+<!-- 底部导航栏 -->
+<nav class="bottom-nav" id="bottomNav">
+  <a href="index.html" class="nav-btn">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+    </span>
+    <span class="nav-label">记账</span>
+  </a>
+  <span class="nav-btn active">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    </span>
+    <span class="nav-label">分析</span>
+  </span>
+</nav>
+
+<!-- 抽屉遮罩 -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+<!-- ── 设置抽屉 ── -->
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <span class="drawer-title">设置</span>
+    <button class="btn-close" id="settingsClose">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="settings-section">
+      <div class="api-status-row" id="apiStatusRow">
+        <span class="status-dot empty" id="apiStatusDot"></span>
+        <span id="apiStatusText">未配置 DeepSeek API Key</span>
+      </div>
+      <div class="settings-label">DeepSeek API Key</div>
+      <div class="settings-input-wrap">
+        <input type="password" class="settings-input" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx">
+        <button class="settings-eye" id="apiKeyToggle" title="显示/隐藏">👁</button>
+      </div>
+      <div class="settings-hint">
+        API Key 用于 AI 分析功能。<br>
+        API Key 仅存储在浏览器本地，不会上传。<br>
+        也可以直接编辑项目中的 <code>config.js</code> 文件填入密钥，无需在此输入。<br>
+        <a href="https://platform.deepseek.com" target="_blank">→ 获取 DeepSeek API Key</a>
+      </div>
+    </div>
+    <button class="btn-save-settings" id="btnSaveSettings">保存设置</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// 分析页专属逻辑
+// ═══════════════════════════════════════════════════
+
+// ── AI 分析 System Prompt ──
+var AI_ANALYSIS_PROMPT = '你是「黄牛 AI」，一位深谙佛教财富观的智能财务分析助手。\n\n分析基调：平和、温暖，像一位有智慧的朋友在分享，不批判、不说教、不以宗教口吻强行布道。\n\n分析依据：济群法师《佛教的财富观》核心理论。\n\n# 分析输出结构（必须严格遵循）\n\n每次分析必须按以下四个部分输出（使用 Markdown 格式）：\n\n### 📊 一、收支概况\n\n用 2-3 句话说总结本周期的收支整体情况，包括总收入、总支出、净结余、储蓄率水平。用温和语气，不用「优秀/差」等评判性词汇。\n\n### 🔍 二、消费习惯分析\n\n分析用户的主要支出类别，指出支出占比最高的 2-3 个类别，用温和语气描述。禁止指责、批判，使用「占比偏高」「可以进一步优化」等中性表达。\n\n### 🙏 三、佛教财富观视角\n\n这是核心特色部分，结合佛教财富观理论，从以下角度温和解读（不直接引用经文，将精神融入文字）：\n\n1. **正命角度**：收入来源是否清净正当？（若无法从标签判断则跳过，不要臆测）\n2. **知足少欲角度**：消费是否有过度追求物质享受的趋势？\n3. **中道角度**：消费是否走在中道上，既不过度节俭也不过度挥霍？\n4. **布施角度**：用户是否有记录布施/捐赠类支出？（若有，给予肯定；若无，可温和建议）\n5. **「五家共有」角度**：引导用户不把财富当作永恒的安全感来源\n\n语气要求：像一位有智慧的朋友在分享，不批判、不说教。\n\n### 💡 四、行动建议\n\n给出 3-5 条具体、可执行的建议，每条建议与前面的分析直接对应，具体可执行（不说「减少不必要支出」，而说「本周期餐饮支出占比 XX%，可以尝试每周减少 2 次外卖」）。\n\n# 佛教财富观理论要点（分析依据）\n\n以下是你需要融入分析的核心理论精神：\n\n- **净财 vs 不净财**：净财是通过正当途径获得、用于利益自他的财富；不净财是以不正当手段获取、用于损人利己的财富。温和引导用户审视收入来源是否符合正命。\n- **正命（正当谋生）**：职业/收入方式不应损害众生。发心是以自食其力、利益社会的心态工作，而非单纯满足贪欲。\n- **因果与福报**：财富的获取遵循因果规律。无因之果不存在，不正当手段得来的财富也会因恶业很快耗散。不指责用户，而是温和提醒。\n- **财富「四分法」**：佛教倡导财富分配参考：保障生活 ~1/4、储蓄备用 ~1/4、布施行善 ~1/4、供养三宝 ~1/4。若用户储蓄率明显偏低（<10%），可温和建议增加储蓄比例。\n- **布施（三种布施）**：财布施（捐助贫困、救灾、公益）、法布施（传播正法、帮助他人开启智慧）、无畏布施（保护生命、给他人安全感）。若用户有「公益/捐赠/布施」类记录，应给予肯定和鼓励。\n- **知足少欲**：不贪求更多不需要的财富，降低对物质享受的过度追求。若用户「服饰美容」「休闲娱乐」「数码电器」支出占比过高，可温和引导反思「这些消费是否带来了持久的满足感」。\n- **中道思想**：不极端苦行（完全排斥财富），也不极端纵欲（过度追求物质享受）。财富本身无好坏，关键是如何使用。\n- **「五家共有」**：财富没有永恒的所有权（水灾、火灾、盗贼、不肖子孙、官府皆可令财富耗散）。引导用户合理使用财富，避免吝啬和浪费，不把财富当作安全感的唯一来源。\n- **法财 > 世财**：精神财富（信仰、道德、智慧、内心平静、慈悲心）比物质财富更值得追求，能带来长久的安乐。在建议部分引导用户关注精神层面的成长。\n\n# 输出格式规范\n\n- 使用 Markdown 格式（支持 **加粗**、- 列表、### 标题）\n- 总金额用 ¥ 符号（如 ¥18,300）\n- 各部分之间用 --- 分隔\n- 总长度控制在 500-800 字（周期越长可适当放宽到 1000 字）\n- 不使用表格（移动端显示友好）\n- 不使用「邪恶」「罪业」「业障」等容易引起反感的宗教词汇\n\n# 禁忌与注意事项\n\n1. 禁止指责用户：即使用户的支出结构明显失衡，也要用温和、建设性的语言表达\n2. 禁止宗教说教：不要以「法师」「师父」的口吻说话，要以「智能助手」的身份分享佛教智慧\n3. 禁止臆测收入来源：如果无法从标签判断收入是否来自正命行业，跳过该部分，不要瞎猜\n4. 保护隐私：不要在分析结果中复述具体的消费备注（note 字段），只分析聚合数据\n5. 不预测未来：不要说「您下个月会…」这类预测性语言\n6. 不涉及投资建议：本功能只分析收支，不提供股票/基金/加密货币等投资建议';
+
+// ── 分析页状态 ──
+var analysisYear = new Date().getFullYear();
+var analysisMonth = new Date().getMonth();
+
+// ── 初始化 ──
+function init() {
+  loadRecords();
+  renderAnalysisStats();
+  updateApiStatusUI();
+  initSharedComponents();
+  bindEvents();
+}
+
+// ── 辅助函数 ──
+function formatDate(d) {
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+function getPeriodLabel(periodType, startDate, endDate) {
+  switch (periodType) {
+    case 'month':    return '本月';
+    case '3months': return '近3个月';
+    case '6months': return '近6个月';
+    case 'custom':   return startDate + ' ~ ' + endDate;
+    default:         return (startDate || '') + ' ~ ' + (endDate || '');
+  }
+}
+
+function getAnalysisDateRange(periodType) {
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (periodType) {
+    case 'month': {
+      var start = new Date(today.getFullYear(), today.getMonth(), 1);
+      var end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return {
+        startDate: formatDate(start),
+        endDate:   formatDate(today > end ? end : today)
+      };
+    }
+    case '3months': {
+      var start3 = new Date(today);
+      start3.setDate(start3.getDate() - 90);
+      return { startDate: formatDate(start3), endDate: formatDate(today) };
+    }
+    case '6months': {
+      var start6 = new Date(today);
+      start6.setDate(start6.getDate() - 180);
+      return { startDate: formatDate(start6), endDate: formatDate(today) };
+    }
+    case 'custom': {
+      var startVal = document.getElementById('analysisStartDate').value;
+      var endVal   = document.getElementById('analysisEndDate').value;
+      return { startDate: startVal, endDate: endVal };
+    }
+    default:
+      return { startDate: '', endDate: '' };
+  }
+}
+
+function getRecordsByDateRange(startDate, endDate) {
+  if (!startDate || !endDate) return [];
+  var s = new Date(startDate + 'T00:00:00');
+  var e = new Date(endDate   + 'T23:59:59');
+  return records.filter(function (r) {
+    var d = new Date(r.time);
+    return d >= s && d <= e;
+  }).sort(function (a, b) { return new Date(b.time) - new Date(a.time); });
+}
+
+// ── Markdown → HTML ──
+function parseMarkdown(md) {
+  if (!md) return '';
+  var html = escHtml(md);
+
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  html = html.replace(/^---$/gm, '<hr>');
+  html = html.replace(/^(?:-|\*)\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*?<\/li>\n?)+/g, function (m) { return '<ul>\n' + m + '</ul>\n'; });
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*?<\/li>\n?)+/g, function (m) { return '<ol>\n' + m + '</ol>\n'; });
+
+  var blocks = html.split(/\n\n+/);
+  html = blocks.map(function (block) {
+    if (/^<(h[1-3]|ul|ol|hr|div|table|blockquote)/.test(block.trim())) return block;
+    var trimmed = block.trim();
+    if (!trimmed) return '';
+    return '<p>' + trimmed.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+
+  return html.trim();
+}
+
+// ── 渲染函数 ──
+function renderAnalysisStats() {
+  document.getElementById('monthLabelAnalysis').textContent =
+    analysisYear + '年' + (analysisMonth + 1) + '月';
+
+  var list = records.filter(function (r) {
+    var d = new Date(r.time);
+    return d.getFullYear() === analysisYear && d.getMonth() === analysisMonth;
+  });
+
+  var inc = 0, exp = 0;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].type === 'income') inc += list[i].amount;
+    else exp += list[i].amount;
+  }
+  document.getElementById('statIncome').textContent  = '¥' + inc.toFixed(0);
+  document.getElementById('statExpense').textContent = '¥' + exp.toFixed(0);
+  document.getElementById('statNet').textContent     = '¥' + (inc - exp).toFixed(0);
+
+  renderTagBars('expense', list);
+  renderTagBars('income', list);
+}
+
+function renderTagBars(type, list) {
+  var el = document.getElementById(type === 'expense' ? 'expenseTagBars' : 'incomeTagBars');
+  var map = {};
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    if (r.type === type && r.tag) {
+      map[r.tag] = (map[r.tag] || 0) + r.amount;
+    }
+  }
+  var sorted = [];
+  for (var tag in map) {
+    if (map.hasOwnProperty(tag)) sorted.push([tag, map[tag]]);
+  }
+  sorted.sort(function (a, b) { return b[1] - a[1]; });
+  sorted = sorted.slice(0, 6);
+  var max = sorted[0] ? sorted[0][1] : 1;
+  if (!sorted.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--gray-placeholder);padding:8px 0">暂无数据</div>';
+    return;
+  }
+  var html = '';
+  for (var j = 0; j < sorted.length; j++) {
+    var tag = sorted[j][0];
+    var amt = sorted[j][1];
+    var color = type === 'expense' ? '#E8A020' : '#1D9E75';
+    html += '<div class="tag-bar-item">' +
+      '<span class="tag-bar-label">' + tag + '</span>' +
+      '<div class="tag-bar-track">' +
+        '<div class="tag-bar-fill" style="width:' + (amt / max * 100).toFixed(1) + '%;background:' + color + '"></div>' +
+      '</div>' +
+      '<span class="tag-bar-amount">¥' + amt.toFixed(0) + '</span>' +
+    '</div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── AI 分析核心 ──
+var MAX_ANALYSIS_RECORDS = 200;
+
+function smartSample(recordsArr) {
+  if (recordsArr.length <= MAX_ANALYSIS_RECORDS) return recordsArr;
+
+  var byAmount = recordsArr.slice().sort(function (a, b) { return b.amount - a.amount; });
+  var topAmount = byAmount.slice(0, 50);
+
+  var sorted2 = recordsArr.slice().sort(function (a, b) { return new Date(b.time) - new Date(a.time); });
+  var recent = sorted2.slice(0, 100);
+
+  var rest = recordsArr.filter(function (r) {
+    return topAmount.indexOf(r) === -1 && recent.indexOf(r) === -1;
+  });
+  var random = [];
+  var restCopy = rest.slice();
+  while (random.length < 50 && restCopy.length) {
+    var idx = Math.floor(Math.random() * restCopy.length);
+    random.push(restCopy.splice(idx, 1)[0]);
+  }
+
+  var combined = topAmount.concat(recent).concat(random);
+  // 去重
+  var seen = {};
+  var deduped = [];
+  for (var i = 0; i < combined.length; i++) {
+    if (!seen[combined[i].id]) {
+      seen[combined[i].id] = true;
+      deduped.push(combined[i]);
+    }
+  }
+  return deduped.sort(function (a, b) { return new Date(b.time) - new Date(a.time); });
+}
+
+function callDeepSeekForAnalysis(periodType) {
+  var apiKey = getApiKey();
+  if (!apiKey) {
+    showToast('请先在设置中配置 DeepSeek API Key');
+    return;
+  }
+
+  var range = getAnalysisDateRange(periodType);
+  var startDate = range.startDate;
+  var endDate = range.endDate;
+  if (!startDate || !endDate) {
+    showToast('请选择开始和结束日期');
+    return;
+  }
+
+  var periodRecords = getRecordsByDateRange(startDate, endDate);
+  if (!periodRecords.length) {
+    showToast('该周期内没有记账记录，请先记账');
+    return;
+  }
+
+  var recordsToSend = periodRecords;
+  var isSampled = false;
+  if (periodRecords.length > MAX_ANALYSIS_RECORDS) {
+    recordsToSend = smartSample(periodRecords);
+    isSampled = true;
+  }
+
+  var periodLabel = getPeriodLabel(periodType, startDate, endDate);
+  var incomeList  = periodRecords.filter(function (r) { return r.type === 'income'; });
+  var expenseList = periodRecords.filter(function (r) { return r.type === 'expense'; });
+  var totalIncome  = incomeList.reduce(function (s, r) { return s + r.amount; }, 0);
+  var totalExpense = expenseList.reduce(function (s, r) { return s + r.amount; }, 0);
+  var netSavings   = totalIncome - totalExpense;
+  var savingsRate  = totalIncome > 0 ? (netSavings / totalIncome * 100).toFixed(1) : 0;
+
+  var incomeByTag  = {};
+  var expenseByTag = {};
+  incomeList.forEach(function (r)  { incomeByTag[r.tag]  = (incomeByTag[r.tag]  || 0) + r.amount; });
+  expenseList.forEach(function (r) { expenseByTag[r.tag] = (expenseByTag[r.tag] || 0) + r.amount; });
+
+  var topIncome  = Object.entries(incomeByTag).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+  var topExpense = Object.entries(expenseByTag).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8);
+
+  var userData = {
+    period: startDate + ' ~ ' + endDate + '（' + periodLabel + '）',
+    summary: {
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      netSavings: netSavings,
+      savingsRate: Number(savingsRate),
+      recordCount: periodRecords.length
+    },
+    records: recordsToSend.map(function (r) {
+      return {
+        type:   r.type,
+        name:   r.name || '',
+        tag:    r.tag,
+        amount: r.amount,
+        date:   r.time.slice(0, 10)
+      };
+    }),
+    incomeByTag:  topIncome.map(function (entry) { return { tag: entry[0], amount: entry[1] }; }),
+    expenseByTag: topExpense.map(function (entry) { return { tag: entry[0], amount: entry[1] }; }),
+    note: isSampled
+      ? '以下为智能采样后的 ' + recordsToSend.length + ' 条记录（原始共 ' + periodRecords.length + ' 条，采样策略：金额最大 50 条 + 时间最近 100 条 + 随机 50 条）'
+      : '以下为全部 ' + periodRecords.length + ' 条记录'
+  };
+
+  var loadingEl = document.getElementById('analysisLoading');
+  var resultEl  = document.getElementById('analysisResult');
+  var contentEl = document.getElementById('analysisContent');
+  loadingEl.style.display = 'flex';
+  resultEl.style.display  = 'block';
+  contentEl.innerHTML     = '';
+  document.getElementById('btnAiAnalyze').disabled = true;
+
+  fetch(DS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: AI_ANALYSIS_PROMPT },
+        { role: 'user',   content: '请分析以下周期的收支数据：\n' + JSON.stringify(userData, null, 2) }
+      ],
+      temperature: 0.7,
+      max_tokens: 1200
+    })
+  }).then(function (resp) {
+    if (!resp.ok) {
+      return resp.json().catch(function () { return {}; }).then(function (err) {
+        throw new Error(err.error?.message || 'HTTP ' + resp.status);
+      });
+    }
+    return resp.json();
+  }).then(function (data) {
+    var aiText = (data.choices?.[0]?.message?.content || '').trim();
+    if (!aiText) throw new Error('AI 返回内容为空');
+    renderAnalysisResult(aiText);
+  }).catch(function (err) {
+    console.error('AI 分析失败：', err);
+    contentEl.innerHTML = '<p style="color:var(--red);padding:16px;">⚠️ 分析失败：' + escHtml(err.message) + '，请稍后重试。</p>';
+    resultEl.style.display = 'block';
+  }).finally(function () {
+    loadingEl.style.display = 'none';
+    document.getElementById('btnAiAnalyze').disabled = false;
+  });
+}
+
+function renderAnalysisResult(markdownText) {
+  var contentEl = document.getElementById('analysisContent');
+  contentEl.innerHTML = parseMarkdown(markdownText);
+  document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── 事件绑定 ──
+function bindEvents() {
+  // 分析页月份切换
+  document.getElementById('prevMonthAnalysis').addEventListener('click', function () {
+    analysisMonth--;
+    if (analysisMonth < 0) { analysisMonth = 11; analysisYear--; }
+    renderAnalysisStats();
+  });
+
+  document.getElementById('nextMonthAnalysis').addEventListener('click', function () {
+    analysisMonth++;
+    if (analysisMonth > 11) { analysisMonth = 0; analysisYear++; }
+    renderAnalysisStats();
+  });
+
+  // AI 分析：周期选择按钮
+  var periodBtns = document.querySelectorAll('#periodSelector .period-btn');
+  for (var i = 0; i < periodBtns.length; i++) {
+    periodBtns[i].addEventListener('click', function () {
+      var all = document.querySelectorAll('#periodSelector .period-btn');
+      for (var j = 0; j < all.length; j++) { all[j].classList.remove('active'); }
+      this.classList.add('active');
+      document.getElementById('customDateRange').style.display =
+        this.dataset.period === 'custom' ? 'flex' : 'none';
+    });
+  }
+
+  // AI 分析：分析按钮
+  document.getElementById('btnAiAnalyze').addEventListener('click', function () {
+    var activeBtn = document.querySelector('#periodSelector .period-btn.active');
+    if (!activeBtn) return;
+    callDeepSeekForAnalysis(activeBtn.dataset.period);
+  });
+}
+
+// ── 启动 ──
+init();
+</script>
+</body>
+</html>

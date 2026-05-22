@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>黄牛记账</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">
+    <div class="logo-icon">🐂</div>
+    <span class="logo-text">黄牛记账</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon" id="headerVoiceBtn" title="语音记账">🎙</button>
+    <button class="btn-icon" id="settingsBtn" title="设置">⚙</button>
+  </div>
+</header>
+
+<div class="voice-status-bar" id="voiceStatusBar">
+  <div class="voice-dots">
+    <div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div>
+  </div>
+  <span id="voiceStatusText">正在聆听，说完后点停止…</span>
+</div>
+
+<div class="app-body">
+  <!-- 记账内容（直接平铺，无需 page-panel 包装） -->
+  <div class="month-nav">
+    <button class="month-nav-btn" id="prevMonth">‹</button>
+    <div class="month-label" id="monthLabel"></div>
+    <button class="month-nav-btn" id="nextMonth">›</button>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-period" id="summaryPeriod"></div>
+    <div class="summary-balance"><span class="unit">¥</span><span id="balanceNum">0.00</span></div>
+    <div class="summary-row">
+      <div class="summary-item income">
+        <div class="label">📈 收入</div>
+        <div class="amount" id="totalIncome">¥0.00</div>
+      </div>
+      <div class="summary-item expense">
+        <div class="label">📉 支出</div>
+        <div class="amount" id="totalExpense">¥0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <span>本月账单</span>
+    <span class="count" id="recordCount">共 0 条</span>
+  </div>
+  <div class="record-list" id="recordList">
+    <div class="empty-state">
+      <div class="icon">📒</div>
+      <p>还没有记录<br>点击下方按钮添加第一笔账单</p>
+    </div>
+  </div>
+</div><!-- /app-body -->
+
+<!-- 底部导航栏 -->
+<nav class="bottom-nav" id="bottomNav">
+  <span class="nav-btn active">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+    </span>
+    <span class="nav-label">记账</span>
+  </span>
+  <a href="analysis.html" class="nav-btn">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    </span>
+    <span class="nav-label">分析</span>
+  </a>
+</nav>
+
+<div class="fab-wrap">
+  <button class="fab fab-voice" id="voiceBtn" title="语音记账">🎙</button>
+  <button class="fab fab-primary" id="addBtn">+ 记一笔</button>
+</div>
+
+<!-- 抽屉遮罩 -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+<!-- ── 记账抽屉 ── -->
+<div class="drawer" id="entryDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title-row">
+      <span class="drawer-title" id="drawerTitle">新建记账</span>
+      <span class="ai-badge inactive" id="aiBadge">✦ AI</span>
+    </div>
+    <button class="btn-close" id="drawerClose">✕</button>
+  </div>
+  <div class="drawer-body">
+
+    <!-- 语音结果框 -->
+    <div class="voice-result-box" id="voiceResultBox">
+      <span class="mic-icon" id="voiceBoxIcon">🎙</span>
+      <span class="voice-text" id="voiceResultText">点击麦克风按钮开始录音，说完后点「停止并分析」，DeepSeek 将自动填写各字段</span>
+    </div>
+
+    <!-- 语音操作栏（录音中显示） -->
+    <div class="voice-action-bar" id="voiceActionBar">
+      <button class="btn-voice-stop" id="btnVoiceStop">⏹ 停止录音</button>
+      <button class="btn-voice-analyze" id="btnVoiceAnalyze" disabled>✦ 停止并分析</button>
+      <span class="voice-countdown" id="voiceCountdown">20s</span>
+    </div>
+
+    <!-- 类型 -->
+    <div class="type-toggle">
+      <button class="type-btn active expense" id="typeExpense">📉 支出</button>
+      <button class="type-btn income" id="typeIncome">📈 收入</button>
+    </div>
+
+    <div class="field-group">
+      <div class="field">
+        <label for="fieldName">名称</label>
+        <input type="text" id="fieldName" placeholder="例如：午饭、工资" maxlength="30">
+        <div class="parse-hint" id="hintName"></div>
+      </div>
+      <div class="field">
+        <label for="fieldAmount">金额</label>
+        <div class="amount-wrap">
+          <span class="amount-prefix">¥</span>
+          <input type="number" id="fieldAmount" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="parse-hint" id="hintAmount"></div>
+      </div>
+      <div class="field">
+        <label for="fieldTime">日期</label>
+        <input type="date" id="fieldTime">
+        <div class="parse-hint" id="hintTime"></div>
+      </div>
+      <div class="field">
+        <label id="labelTag">标签</label>
+        <div class="tag-grid" id="tagGrid" role="group" aria-labelledby="labelTag"></div>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="btnSubmit">✓ 确认记账</button>
+  </div>
+</div>
+
+<!-- ── 设置抽屉 ── -->
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <span class="drawer-title">设置</span>
+    <button class="btn-close" id="settingsClose">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="settings-section">
+      <div class="api-status-row" id="apiStatusRow">
+        <span class="status-dot empty" id="apiStatusDot"></span>
+        <span id="apiStatusText">未配置 DeepSeek API Key，将使用内置规则解析</span>
+      </div>
+      <div class="settings-label">DeepSeek API Key</div>
+      <div class="settings-input-wrap">
+        <input type="password" class="settings-input" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx">
+        <button class="settings-eye" id="apiKeyToggle" title="显示/隐藏">👁</button>
+      </div>
+      <div class="settings-hint">
+        填入后，语音识别结果将发送给 DeepSeek 进行智能字段提取。<br>
+        API Key 仅存储在浏览器本地，不会上传。<br>
+        也可以直接编辑项目中的 <code>config.js</code> 文件填入密钥，无需在此输入。<br>
+        <a href="https://platform.deepseek.com" target="_blank">→ 获取 DeepSeek API Key</a>
+      </div>
+    </div>
+    <button class="btn-save-settings" id="btnSaveSettings">保存设置</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// 记账页专属逻辑
+// ═══════════════════════════════════════════════════
+
+// ── 记账页状态 ──
+var currentType   = 'expense';
+var selectedTag   = '';
+var currentYear, currentMonth;
+var editId = null;
+
+var recognition    = null;
+var isRecording    = false;
+var fullTranscript = '';
+var voiceTimer     = null;
+var voiceSeconds   = 0;
+
+// ── 初始化 ──
+function init() {
+  var now = new Date();
+  currentYear  = now.getFullYear();
+  currentMonth = now.getMonth();
+  loadRecords();
+  setDefaultTime();
+  renderTagGrid();
+  renderAll();
+  updateApiStatusUI();
+  initSharedComponents();
+  bindEvents();
+}
+
+function setDefaultTime() {
+  var now = new Date();
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  document.getElementById('fieldTime').value =
+    now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+}
+
+// ── 渲染 ──
+function renderAll() {
+  renderMonthLabel();
+  var list = getMonthRecords();
+  renderSummary(list);
+  renderList(list);
+}
+
+function getMonthRecords() {
+  return records.filter(function (r) {
+    var d = new Date(r.time);
+    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+  }).sort(function (a, b) { return new Date(b.time) - new Date(a.time); });
+}
+
+function renderMonthLabel() {
+  document.getElementById('monthLabel').textContent = currentYear + '年' + (currentMonth + 1) + '月';
+  document.getElementById('summaryPeriod').textContent = currentYear + '年' + (currentMonth + 1) + '月 结余';
+}
+
+function renderSummary(list) {
+  var inc = 0, exp = 0;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].type === 'income') inc += list[i].amount;
+    else exp += list[i].amount;
+  }
+  document.getElementById('totalIncome').textContent  = '¥' + inc.toFixed(2);
+  document.getElementById('totalExpense').textContent = '¥' + exp.toFixed(2);
+  document.getElementById('balanceNum').textContent   = (inc - exp).toFixed(2);
+}
+
+function renderList(list) {
+  var el = document.getElementById('recordList');
+  document.getElementById('recordCount').textContent = '共 ' + list.length + ' 条';
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📒</div><p>本月还没有记录<br>点击下方按钮添加第一笔账单</p></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    var d = new Date(r.time);
+    var ds = (d.getMonth() + 1) + '/' + d.getDate();
+    var tagLabel = r.tag ? r.tag.replace(/^[^\s]+\s/, '') : '';
+    var icon = RECORD_ICONS[tagLabel] || (r.type === 'income' ? '💰' : '💸');
+    var sign = r.type === 'income' ? '+' : '-';
+    html += '<div class="record-item ' + r.type + '" data-id="' + r.id + '">' +
+      '<div class="record-icon">' + icon + '</div>' +
+      '<div class="record-info">' +
+        '<div class="record-name">' + escHtml(r.name) + '</div>' +
+        '<div class="record-meta">' +
+          '<span>' + ds + '</span>' +
+          (r.tag ? '<span class="record-tag">' + escHtml(r.tag) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="record-amount">' + sign + '¥' + r.amount.toFixed(2) + '</div>' +
+      '<button class="record-delete" data-id="' + r.id + '" title="删除">✕</button>' +
+    '</div>';
+  }
+  el.innerHTML = html;
+
+  // 删除按钮事件
+  var delBtns = el.querySelectorAll('.record-delete');
+  for (var j = 0; j < delBtns.length; j++) {
+    delBtns[j].addEventListener('click', function (e) {
+      e.stopPropagation();
+      deleteRecord(this.dataset.id);
+    });
+  }
+
+  // 编辑点击事件
+  var items = el.querySelectorAll('.record-item');
+  for (var k = 0; k < items.length; k++) {
+    items[k].addEventListener('click', function () {
+      editRecord(this.dataset.id);
+    });
+  }
+}
+
+function renderTagGrid() {
+  var grid = document.getElementById('tagGrid');
+  var tags = TAGS[currentType];
+  var html = '';
+  for (var i = 0; i < tags.length; i++) {
+    html += '<button class="tag-chip' + (selectedTag === tags[i] ? ' selected' : '') + '" data-tag="' + escHtml(tags[i]) + '">' + tags[i] + '</button>';
+  }
+  grid.innerHTML = html;
+  var chips = grid.querySelectorAll('.tag-chip');
+  for (var j = 0; j < chips.length; j++) {
+    chips[j].addEventListener('click', function () {
+      selectedTag = selectedTag === this.dataset.tag ? '' : this.dataset.tag;
+      renderTagGrid();
+    });
+  }
+}
+
+// ── 表单 ──
+function submitRecord() {
+  var name      = document.getElementById('fieldName').value.trim();
+  var amountRaw = document.getElementById('fieldAmount').value;
+  var time      = document.getElementById('fieldTime').value;
+  if (!name)                        { showToast('请填写名称'); return; }
+  if (!amountRaw || isNaN(parseFloat(amountRaw)) || parseFloat(amountRaw) <= 0)
+                                    { showToast('请填写正确的金额'); return; }
+  if (!time)                        { showToast('请选择日期'); return; }
+
+  var record = {
+    id:     editId || Date.now().toString(),
+    type:   currentType,
+    name:   name,
+    amount: parseFloat(parseFloat(amountRaw).toFixed(2)),
+    time:   new Date(time + 'T12:00:00').toISOString(),
+    tag:    selectedTag,
+  };
+  if (editId) {
+    for (var i = 0; i < records.length; i++) {
+      if (records[i].id === editId) { records[i] = record; break; }
+    }
+  } else {
+    records.push(record);
+  }
+  saveRecords();
+  closeDrawer('entryDrawer');
+  renderAll();
+  showToast(editId ? '已更新' : '记账成功 🎉');
+}
+
+function deleteRecord(id) {
+  records = records.filter(function (r) { return r.id !== id; });
+  saveRecords(); renderAll(); showToast('已删除');
+}
+
+function editRecord(id) {
+  var r = null;
+  for (var i = 0; i < records.length; i++) {
+    if (records[i].id === id) { r = records[i]; break; }
+  }
+  if (!r) return;
+  editId = id;
+  currentType = r.type;
+  document.getElementById('typeExpense').classList.toggle('active', r.type === 'expense');
+  document.getElementById('typeIncome').classList.toggle('active', r.type === 'income');
+  document.getElementById('fieldName').value = r.name;
+  document.getElementById('fieldAmount').value = r.amount;
+  document.getElementById('fieldTime').value = r.time.slice(0, 10);
+  selectedTag = r.tag || '';
+  renderTagGrid();
+  var hints = document.querySelectorAll('.parse-hint');
+  for (var j = 0; j < hints.length; j++) { hints[j].classList.remove('show'); }
+  updateAiBadge();
+  openDrawer('entryDrawer', '编辑记账');
+}
+
+function resetForm() {
+  editId = null; currentType = 'expense'; selectedTag = '';
+  document.getElementById('fieldName').value = '';
+  document.getElementById('fieldAmount').value = '';
+  setDefaultTime();
+  document.getElementById('typeExpense').classList.add('active');
+  document.getElementById('typeIncome').classList.remove('active');
+  setVoiceResultBox('idle', '点击麦克风按钮开始录音，说完后点「停止并分析」，DeepSeek 将自动填写各字段');
+  var hints = document.querySelectorAll('.parse-hint');
+  for (var i = 0; i < hints.length; i++) { hints[i].classList.remove('show'); }
+  document.getElementById('voiceActionBar').classList.remove('show');
+  renderTagGrid();
+  updateAiBadge();
+}
+
+// ── 语音识别 ──
+function initRecognition() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  var r = new SR();
+  r.lang = 'zh-CN';
+  r.continuous    = true;
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+  return r;
+}
+
+function startVoice() {
+  if (isRecording) { stopVoice(false); return; }
+
+  if (location.protocol === 'file:') {
+    if (!document.getElementById('entryDrawer').classList.contains('open')) openDrawer('entryDrawer', '语音记账');
+    setVoiceResultBox('error', '⚠️ 语音功能需要通过 HTTP 服务访问（当前是 file://）。\n\n推荐：用 VS Code Live Server 或 python -m http.server 8080 启动本地服务后访问。\n\n也可以直接使用输入法语音键盘在下方字段中输入。');
+    showToast('需要 HTTP 服务才能用语音，详见提示框', 4000);
+    return;
+  }
+
+  recognition = initRecognition();
+  if (!recognition) {
+    if (!document.getElementById('entryDrawer').classList.contains('open')) openDrawer('entryDrawer', '语音记账');
+    setVoiceResultBox('error', '⚠️ 浏览器不支持语音识别 API。\n\n请使用 Chrome 87+ 或 Edge 87+ 浏览器。');
+    showToast('请使用 Chrome 或 Edge 浏览器', 3500);
+    return;
+  }
+
+  if (!document.getElementById('entryDrawer').classList.contains('open')) openDrawer('entryDrawer', '语音记账');
+
+  isRecording = true;
+  fullTranscript = '';
+  voiceSeconds = 0;
+  setVoiceUI(true);
+  setVoiceResultBox('listening', '正在聆听… 请说话（最长20秒，到时自动分析）');
+  document.getElementById('voiceActionBar').classList.add('show');
+  document.getElementById('btnVoiceAnalyze').disabled = true;
+  document.getElementById('voiceCountdown').textContent = '20s';
+  document.getElementById('voiceCountdown').classList.remove('urgent');
+
+  voiceTimer = setInterval(function () {
+    voiceSeconds++;
+    var remaining = Math.max(0, 20 - voiceSeconds);
+    var cdEl = document.getElementById('voiceCountdown');
+    cdEl.textContent = remaining + 's';
+    if (remaining <= 5) cdEl.classList.add('urgent');
+    if (remaining <= 0) {
+      clearInterval(voiceTimer);
+      voiceTimer = null;
+      stopVoice(true);
+      showToast('已录音20秒，自动开始分析');
+    }
+  }, 1000);
+
+  recognition.onresult = function (e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var seg = e.results[i][0].transcript;
+      if (e.results[i].isFinal) fullTranscript += seg;
+      else interim += seg;
+    }
+    var displayed = (fullTranscript + interim).trim();
+    setVoiceResultBox('listening', displayed || '正在聆听… 请说话');
+    if (displayed.length > 0) document.getElementById('btnVoiceAnalyze').disabled = false;
+  };
+
+  recognition.onerror = function (e) {
+    if (e.error === 'aborted') return;
+    if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
+    stopVoice(false);
+    var errMap = {
+      'not-allowed':         '麦克风权限被拒绝\n请点击地址栏左侧锁形图标，将麦克风权限改为「允许」后重试',
+      'no-speech':           '未检测到语音，请靠近麦克风重试',
+      'audio-capture':       '找不到麦克风设备，请检查是否已连接',
+      'network':             '语音识别需要联网，请检查网络后重试',
+      'service-not-allowed': '语音服务不可用，请确认使用 Chrome 或 Edge',
+    };
+    var msg = errMap[e.error];
+    setVoiceResultBox('error', '⚠️ ' + (msg || '错误：' + e.error));
+    showToast(msg || '语音错误：' + e.error, 4000);
+  };
+
+  recognition.onend = function () {
+    if (!isRecording) return;
+    try { recognition.start(); } catch (err) {}
+  };
+
+  try { recognition.start(); }
+  catch (err) { stopVoice(false); showToast('无法启动录音：' + err.message, 3500); }
+}
+
+function stopVoice(andAnalyze) {
+  if (voiceTimer) { clearInterval(voiceTimer); voiceTimer = null; }
+  isRecording = false;
+  setVoiceUI(false);
+  document.getElementById('voiceActionBar').classList.remove('show');
+  document.getElementById('voiceCountdown').textContent = '20s';
+  document.getElementById('voiceCountdown').classList.remove('urgent');
+  if (recognition) {
+    try { recognition.stop(); } catch (e) {}
+    recognition = null;
+  }
+  if (andAnalyze && fullTranscript.trim()) {
+    analyzeWithAI(fullTranscript.trim());
+  } else if (fullTranscript.trim()) {
+    setVoiceResultBox('done', fullTranscript.trim());
+  }
+}
+
+function setVoiceUI(on) {
+  var bar = document.getElementById('voiceStatusBar');
+  var fab = document.getElementById('voiceBtn');
+  var hdr = document.getElementById('headerVoiceBtn');
+  if (on) {
+    bar.classList.add('visible');
+    fab.classList.add('recording'); fab.textContent = '⏹';
+    hdr.textContent = '⏹';
+  } else {
+    bar.classList.remove('visible');
+    fab.classList.remove('recording'); fab.textContent = '🎙';
+    hdr.textContent = '🎙';
+  }
+}
+
+function setVoiceResultBox(state, text) {
+  var box  = document.getElementById('voiceResultBox');
+  var txt  = document.getElementById('voiceResultText');
+  var icon = document.getElementById('voiceBoxIcon');
+  box.className = 'voice-result-box';
+  txt.className = 'voice-text';
+  if (state === 'listening')       { box.classList.add('listening');   icon.textContent = '🔴'; txt.classList.add('has-text'); }
+  else if (state === 'ai-thinking') { box.classList.add('ai-thinking'); icon.textContent = '✦'; txt.classList.add('has-text'); }
+  else if (state === 'done')       { icon.textContent = '✅'; txt.classList.add('has-text'); }
+  else if (state === 'error')      { icon.textContent = '⚠️'; txt.classList.add('has-text'); }
+  else                              { icon.textContent = '🎙'; }
+  txt.textContent = text;
+}
+
+// ── DeepSeek AI 解析（语音转字段）──
+function analyzeWithAI(text) {
+  var key = getApiKey();
+  if (!key) {
+    parseVoiceTextRegex(text);
+    showToast('未配置 API Key，已用内置规则解析', 2500);
+    return;
+  }
+
+  setVoiceResultBox('ai-thinking',
+    '识别内容：「' + text + '」\n\n' +
+    '<span class="ai-loading"><span class="ai-spinner"></span> DeepSeek 正在分析…</span>'
+  );
+  var txtEl = document.getElementById('voiceResultText');
+  txtEl.innerHTML =
+    '识别内容：「' + escHtml(text) + '」\n\n' +
+    '<span class="ai-loading"><span class="ai-spinner"></span> DeepSeek 正在分析…</span>';
+
+  var tagListStr = TAGS.expense.concat(TAGS.income).join('、');
+  var today = new Date().toISOString().slice(0, 10);
+
+  var prompt = '你是一个记账助手，请从用户的语音转文字中提取记账信息，返回 JSON。\n\n' +
+    '今天日期：' + today + '\n' +
+    '可选标签列表：' + tagListStr + '\n\n' +
+    '用户说：「' + text + '」\n\n' +
+    '请返回如下 JSON（不要加代码块，不要解释）：\n' +
+    '{\n' +
+    '  "type": "expense" 或 "income",\n' +
+    '  "name": "简短名称（≤10字）",\n' +
+    '  "amount": 数字（没有则返回 null）,\n' +
+    '  "time": "日期时间，格式 YYYY-MM-DD HH:mm，尽量从语音中推断，推不出来则用今天日期当天 12:00",\n' +
+    '  "tag": "从标签列表中选最合适的一个（完整字符串，含 emoji），找不到则返回 null"\n' +
+    '}';
+
+  fetch(DS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 200,
+    }),
+  }).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (errBody) {
+        throw new Error('HTTP ' + res.status + ': ' + errBody.slice(0, 120));
+      });
+    }
+    return res.json();
+  }).then(function (data) {
+    var raw = (data.choices?.[0]?.message?.content || '').trim();
+    var jsonStr = raw.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+    var parsed = JSON.parse(jsonStr);
+    applyAIResult(parsed, text);
+  }).catch(function (err) {
+    console.error('DeepSeek error:', err);
+    setVoiceResultBox('error', '⚠️ AI 解析失败：' + err.message + '\n\n已切换到内置规则解析');
+    showToast('AI 解析失败，已用内置规则', 3000);
+    parseVoiceTextRegex(text);
+  });
+}
+
+function applyAIResult(parsed, originalText) {
+  var type   = parsed.type === 'income' ? 'income' : 'expense';
+  var name   = (parsed.name || '').trim();
+  var amount = typeof parsed.amount === 'number' ? parsed.amount : null;
+  var tag    = parsed.tag || '';
+  var timeRaw = (parsed.time || '').trim();
+
+  if (type !== currentType) {
+    currentType = type;
+    document.getElementById('typeExpense').classList.toggle('active', type === 'expense');
+    document.getElementById('typeIncome').classList.toggle('active',  type === 'income');
+    selectedTag = '';
+    renderTagGrid();
+  }
+
+  if (name) {
+    document.getElementById('fieldName').value = name;
+    showHint('hintName', 'AI 识别：' + name);
+  }
+  if (amount !== null) {
+    document.getElementById('fieldAmount').value = amount;
+    showHint('hintAmount', 'AI 识别：¥' + amount);
+  }
+  if (tag && TAGS[type].indexOf(tag) >= 0) {
+    selectedTag = tag;
+    renderTagGrid();
+  }
+
+  if (timeRaw) {
+    var d = null;
+    var cleaned = timeRaw.replace(/\//g, '-').replace(/(上午|下午|早上|晚上)/g, '').trim();
+    var dateOnly = cleaned.split(' ')[0];
+    var tryD = new Date(dateOnly + 'T12:00:00');
+    if (!isNaN(tryD.getTime())) d = tryD;
+    if (!d) {
+      var m2 = cleaned.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m2) d = new Date(m2[1] + '-' + m2[2].padStart(2, '0') + '-' + m2[3].padStart(2, '0') + 'T12:00:00');
+    }
+    if (d) {
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      var formatted = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      document.getElementById('fieldTime').value = formatted;
+      showHint('hintTime', 'AI 识别日期：' + formatted);
+    }
+  }
+
+  setVoiceResultBox('done',
+    '✦ AI 已填写字段，请核对：\n类型=' + (type === 'income' ? '收入' : '支出') +
+    '  名称=' + (name || '—') +
+    '  金额=' + (amount !== null ? '¥' + amount : '—') +
+    '  标签=' + (tag || '—') +
+    '  日期=' + (timeRaw || '—')
+  );
+  updateAiBadge(true);
+  showToast('AI 解析完成，请核对后确认 ✓');
+}
+
+// ── 内置正则解析（降级方案）──
+function parseVoiceTextRegex(text) {
+  var type = currentType;
+  var name = '', amount = null, tag = '', timeObj = null;
+
+  if (/收入|进账|赚|到账/.test(text))                          type = 'income';
+  else if (/支出|花了|消费|买|付|缴|交|花费/.test(text))      type = 'expense';
+
+  var amtM = text.match(/(\d+(?:\.\d+)?)\s*(?:元|块|¥|圆)?|([零一二三四五六七八九十百千万]+)\s*(?:元|块)/);
+  if (amtM) amount = amtM[1] ? parseFloat(amtM[1]) : cnNumToInt(amtM[2]);
+
+  var allTags = TAGS.expense.concat(TAGS.income);
+  for (var i = 0; i < allTags.length; i++) {
+    if (text.indexOf(allTags[i].replace(/^[^\s]+\s/, '')) >= 0) { tag = allTags[i]; break; }
+  }
+
+  var now = new Date();
+  timeObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0);
+
+  function fmtDT(d) {
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  var dateM = text.match(/(?:(\d{1,2})月)?(\d{1,2})\s*[月号日]/);
+  if (dateM) {
+    var m = dateM[1] ? parseInt(dateM[1]) - 1 : now.getMonth();
+    var d = parseInt(dateM[2]);
+    timeObj = new Date(now.getFullYear(), m, d, 12, 0);
+  }
+  if (/今天/.test(text)) timeObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0);
+  if (/昨天/.test(text)) {
+    var yd = new Date(now); yd.setDate(yd.getDate() - 1);
+    timeObj = new Date(yd.getFullYear(), yd.getMonth(), yd.getDate(), 12, 0);
+  }
+  if (/前天/.test(text)) {
+    var td = new Date(now); td.setDate(td.getDate() - 2);
+    timeObj = new Date(td.getFullYear(), td.getMonth(), td.getDate(), 12, 0);
+  }
+  var weekM = text.match(/(?:上周|上个星期)([一二三四五六日天])/);
+  if (weekM) {
+    var dayMap = { '日': 0, '天': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 };
+    var targetDay = dayMap[weekM[1]];
+    var diff = (now.getDay() - targetDay + 7) % 7;
+    var offset = diff === 0 ? 7 : diff;
+    var wd = new Date(now); wd.setDate(wd.getDate() - offset);
+    timeObj = new Date(wd.getFullYear(), wd.getMonth(), wd.getDate(), 12, 0);
+  }
+  var hmM = text.match(/(\d{1,2})\s*点(?:\s*(\d{1,2})\s*分?)?/);
+  if (hmM) {
+    var h = parseInt(hmM[1]);
+    var min = hmM[2] ? parseInt(hmM[2]) : 0;
+    timeObj.setHours(h, min, 0, 0);
+  }
+  var ampmM = text.match(/(上午|下午|早上|晚上)(\d{1,2})\s*点/);
+  if (ampmM) {
+    var h2 = parseInt(ampmM[2]);
+    if ((ampmM[1] === '下午' || ampmM[1] === '晚上') && h2 < 12) h2 += 12;
+    if ((ampmM[1] === '上午' || ampmM[1] === '早上') && h2 === 12) h2 = 0;
+    timeObj.setHours(h2, 0, 0, 0);
+  }
+
+  var cands = text
+    .replace(/支出|收入|花了|消费|买|付|缴|交|赚|到账|进账|花费/g, '')
+    .replace(/\d+(?:\.\d+)?\s*(?:元|块)?/gi, '')
+    .replace(/[零一二三四五六七八九十百千万]+(?:元|块)?/g, '')
+    .replace(/今天|昨天|前天/g, '')
+    .replace(/(?:上午|下午|早上|晚上)?\d{1,2}\s*点(?:\s*\d{1,2}\s*分?)?/g, '')
+    .replace(/(?:\d{1,2}月)?\d{1,2}\s*[月号日]/g, '')
+    .replace(/[，,。.!？?]/g, ' ').trim().split(/\s+/)
+    .filter(function (w) { return w.length > 0 && w.length <= 10; });
+  if (cands.length) name = cands[0];
+
+  if (type !== currentType) {
+    currentType = type;
+    document.getElementById('typeExpense').classList.toggle('active', type === 'expense');
+    document.getElementById('typeIncome').classList.toggle('active', type === 'income');
+    selectedTag = ''; renderTagGrid();
+  }
+  if (name)      { document.getElementById('fieldName').value = name; showHint('hintName', '识别：' + name); }
+  if (amount !== null) { document.getElementById('fieldAmount').value = amount; showHint('hintAmount', '识别：¥' + amount); }
+  if (tag && TAGS[type].indexOf(tag) >= 0) { selectedTag = tag; renderTagGrid(); }
+
+  var fmt = fmtDT(timeObj);
+  document.getElementById('fieldTime').value = fmt;
+  showHint('hintTime', '识别时间：' + fmt.replace('T', ' '));
+
+  setVoiceResultBox('done', '内置规则解析完成，请核对：' + text);
+}
+
+function cnNumToInt(str) {
+  var map = { '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '百': 100, '千': 1000, '万': 10000 };
+  var res = 0, tmp = 0, unit = 1;
+  for (var i = str.length - 1; i >= 0; i--) {
+    var v = map[str[i]];
+    if (v >= 10) { unit = v; if (i === 0) res += tmp * unit; }
+    else { tmp = v; res += tmp * unit; unit = 1; }
+  }
+  if (str.charAt(0) === '十') res += 10;
+  return res;
+}
+
+// ── 事件绑定 ──
+function bindEvents() {
+  // FAB
+  document.getElementById('addBtn').addEventListener('click', function () {
+    resetForm(); openDrawer('entryDrawer', '新建记账');
+  });
+  document.getElementById('voiceBtn').addEventListener('click', startVoice);
+  document.getElementById('headerVoiceBtn').addEventListener('click', startVoice);
+
+  // 语音操作栏
+  document.getElementById('btnVoiceStop').addEventListener('click', function () { stopVoice(false); });
+  document.getElementById('btnVoiceAnalyze').addEventListener('click', function () {
+    stopVoice(false);
+    var txt = fullTranscript.trim();
+    if (txt) analyzeWithAI(txt);
+    else showToast('没有录到内容，请重新录音');
+  });
+
+  // 记账抽屉关闭
+  document.getElementById('drawerClose').addEventListener('click', function () {
+    resetForm();
+    closeDrawer('entryDrawer');
+  });
+
+  // 类型切换
+  document.getElementById('typeExpense').addEventListener('click', function () {
+    currentType = 'expense'; selectedTag = '';
+    document.getElementById('typeExpense').classList.add('active');
+    document.getElementById('typeIncome').classList.remove('active');
+    renderTagGrid();
+  });
+  document.getElementById('typeIncome').addEventListener('click', function () {
+    currentType = 'income'; selectedTag = '';
+    document.getElementById('typeIncome').classList.add('active');
+    document.getElementById('typeExpense').classList.remove('active');
+    renderTagGrid();
+  });
+
+  // 提交
+  document.getElementById('btnSubmit').addEventListener('click', submitRecord);
+
+  // 月份导航
+  document.getElementById('prevMonth').addEventListener('click', function () {
+    currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderAll();
+  });
+  document.getElementById('nextMonth').addEventListener('click', function () {
+    currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderAll();
+  });
+}
+
+// 自定义遮罩点击（被 app.js 的 initSharedComponents 调用）
+function onBackdropClick() {
+  if (isRecording) stopVoice(false);
+  closeAllDrawers();
+}
+
+// ── 启动 ──
+init();
+</script>
+</body>
+</html>
