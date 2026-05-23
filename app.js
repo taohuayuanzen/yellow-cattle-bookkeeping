@@ -84,7 +84,7 @@ function updateApiStatusUI() {
     if (apiInput) apiInput.value = key;
   } else {
     dot.className  = 'status-dot empty';
-    text.textContent = '未配置 DeepSeek API Key。请在此处输入 Key 并点击保存，或参考 config.example.js。';
+    text.textContent = '未配置 DeepSeek API Key。请在此处输入 Key 并点击保存';
   }
 }
 

@@ -29,10 +29,6 @@ bower_components/
 *.temp
 .temp/
 
-# WorkBuddy 工作区文件
-.workbuddy/
-*.workbuddy*
-
 # 本地配置文件
 .env
 .env.local
