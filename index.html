@@ -169,9 +169,8 @@
         <button class="settings-eye" id="apiKeyToggle" title="显示/隐藏">👁</button>
       </div>
       <div class="settings-hint">
-        填入后，语音识别结果将发送给 DeepSeek 进行智能字段提取。<br>
-        API Key 仅存储在浏览器本地，不会上传。<br>
-        也可以直接编辑项目中的 <code>config.js</code> 文件填入密钥，无需在此输入。<br>
+        填入后，可以使用语音记账功能和AI分析收支功能。<br>
+        API Key 会安全存储在浏览器本地，不会上传。<br>
         <a href="https://platform.deepseek.com" target="_blank">→ 获取 DeepSeek API Key</a>
       </div>
     </div>
@@ -403,6 +402,7 @@ function initRecognition() {
 
 function startVoice() {
   if (isRecording) { stopVoice(false); return; }
+  resetForm();
 
   if (location.protocol === 'file:') {
     if (!document.getElementById('entryDrawer').classList.contains('open')) openDrawer('entryDrawer', '语音记账');
