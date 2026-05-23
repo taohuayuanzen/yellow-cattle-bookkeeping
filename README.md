@@ -122,8 +122,6 @@ python -m http.server 8080
 | **DeepSeek API Key** | 用于 AI 字段解析和收支分析，留空则使用内置规则解析 |
 | **API Key 存储** | 仅存储在浏览器 `localStorage`，不会上传服务器 |
 
-> ⚠️ **安全提醒**：`config.js` 中的 `deepseekApiKey` 字段留空，切勿将真实 API Key 提交到公开仓库。
-
 ---
 
 ## 🎨 UI 设计亮点
@@ -142,7 +140,6 @@ python -m http.server 8080
 - **纯前端应用**，无任何后端服务器
 - **所有数据**均存储在用户浏览器 `localStorage` 中
 - **API Key** 仅保存在本地，不会随代码泄露
-- **AI 分析**时，仅将收支数据摘要发送给 DeepSeek API
 
 ---
 
@@ -150,7 +147,6 @@ python -m http.server 8080
 
 - [ ] 数据导出/导入功能（备份到 JSON）
 - [ ] 多设备同步（需接入后端）
-- [ ] PWA 支持（添加到主屏幕）
 - [ ] 图表可视化增强（引入 Chart.js）
 - [ ] 深色模式
 
