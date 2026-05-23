@@ -47,6 +47,20 @@ function setApiKey(k) {
   else localStorage.removeItem(APIKEY_STORAGE);
 }
 
+// ── 语音输入防注入清洗 ──
+// 在发送给 AI 之前对用户语音文本做基础清洗
+// 不做激进的关键词过滤（容易误杀正常语音），重点在结构防护
+function sanitizeVoiceInput(text) {
+  if (!text) return '';
+  // 1. 长度限制：20 秒语音合理上限 ~200 字，截断防超长注入
+  text = text.slice(0, 200);
+  // 2. 去除特殊 token（防止伪造消息边界）
+  text = text.replace(/<\|[^|]*\|>/g, '');
+  // 3. 压缩多余换行（防止用换行分隔上下文制造注入空间）
+  text = text.replace(/\n{3,}/g, '\n\n');
+  return text.trim();
+}
+
 // ── 工具函数 ──
 function showToast(msg, duration) {
   if (duration === undefined) duration = 2200;

@@ -150,8 +150,6 @@ python -m http.server 8080
 - [ ] 图表可视化增强（引入 Chart.js）
 - [ ] 深色模式
 
----
-
 ## 📄 开源协议
 
 [MIT License](./LICENSE)
